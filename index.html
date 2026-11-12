@@ -1,0 +1,18 @@
+<!doctype html><html lang="id"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kinerja Distribusi | UP3 Jayapura</title>
+<link rel="stylesheet" href="./assets/styles.css">
+<header><strong>PLN <span>UP3 JAYAPURA</span></strong><span>Jaringan &amp; Distribusi</span></header>
+<main><section class="hero"><div><div class="eyebrow">PAPARAN BULANAN</div><h1>Kinerja Distribusi</h1><p>Target, realisasi, evaluasi, dan tindak lanjut per unit</p></div><div id="heroPeriod" class="period" style="font-weight:700"></div></section>
+<section class="controls" aria-label="Filter paparan"><label>Periode<input id="month" type="month" min="2000-01" max="2099-12" value="2026-10" required></label><label>Unit<select id="unit"></select></label><label>Sumber<select id="source"><option value="demo">Data simulasi</option><option value="work">Data kerja</option></select></label><label id="chartControl">Jenis grafik<select id="chartType"><option value="line">Garis</option><option value="bar">Batang</option><option value="dot">Titik</option></select></label><div class="toolbar tools"><button id="print">Cetak / PDF</button><button id="export">Ekspor data kerja</button><button id="import">Impor data kerja</button><input id="file" type="file" accept=".json,application/json" hidden></div></section>
+<div class="summary" id="summary" aria-live="polite"></div>
+<nav class="toolbar views" id="views" aria-label="Menu paparan">
+<button data-view="overview" aria-pressed="true">Ringkasan</button><button data-view="comparison" aria-pressed="false">Kinerja per ULP</button><button data-view="assets" aria-pressed="false">Detail gangguan</button><button data-view="causes" aria-pressed="false">Penyebab SAIDI, SAIFI &amp; ENS</button><button data-view="map" aria-pressed="false">Peta ULP</button>
+</nav>
+<div id="overview"><div class="tabs" id="tabs" aria-label="Kelompok indikator"></div><div class="grid" id="tiles"></div>
+<section class="detail"><article class="panel"><h2 id="chartTitle"></h2><p class="muted" id="chartSub"></p><div class="legend"><span><i style="background:#008577"></i>Realisasi</span><span><i style="background:#49748e"></i>Target</span></div><div class="chart" id="chart"></div><details><summary>Tabel tren bulanan</summary><div class="tablewrap" id="trendTable"></div></details></article>
+<article class="panel"><div class="sectionhead"><h2>Evaluasi &amp; rencana aksi</h2><div class="toolbar"><button class="primary edit" id="editNotes">Edit analisa &amp; evaluasi</button><button class="edit" id="edit">Input / edit KPI</button></div></div><p class="muted" id="notePeriod"></p><div class="notes" id="notes"></div></article></section>
+</div>
+<section class="panel workspace" id="workspace" hidden></section>
+<p class="muted">Data kerja tersimpan di browser ini. Gunakan ekspor dan impor untuk mencadangkan atau memindahkan data. Rekap UP3 diisi tersendiri sesuai laporan konsolidasi.</p></main>
+<dialog id="dialog"><form id="editor"><h2 id="editTitle"></h2><p id="editPeriod" class="muted"></p><div class="formgrid" id="fields"></div><p id="error" class="bad" role="alert"></p><div class="bottom"><button type="button" id="cancel">Batal</button><button type="submit" class="primary">Simpan</button></div></form></dialog>
+<dialog id="detailDialog"><form id="detailEditor"><h2 id="detailTitle"></h2><p class="muted" id="detailPeriod"></p><div class="formgrid" id="detailFields"></div><p id="detailError" class="bad" role="alert"></p><div class="bottom"><button type="button" id="detailCancel">Batal</button><button type="submit" class="primary">Simpan</button></div></form></dialog>
+<script src="./assets/dashboard.js" defer></script></html>
