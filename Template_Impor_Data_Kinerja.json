@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "records": {
+    "2026-10|UP3 Jayapura|sales": {
+      "target": null,
+      "actual": null,
+      "analysis": "",
+      "evaluation": "",
+      "action": "",
+      "owner": "",
+      "deadline": "",
+      "status": ""
+    },
+    "2026-10|ULP Jayapura|saidi": {
+      "target": null,
+      "actual": null,
+      "analysis": "",
+      "evaluation": "",
+      "action": "",
+      "owner": "",
+      "deadline": "",
+      "status": "",
+      "details": []
+    }
+  }
+}

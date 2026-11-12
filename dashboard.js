@@ -48,7 +48,10 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const fmt=v=>v==null?'—':new Intl.NumberFormat('id-ID',{maximumFractionDigits:2}).format(v);
 const dateFmt=(value,style='long')=>new Intl.DateTimeFormat('id-ID',{month:style,year:'numeric',timeZone:'UTC'}).format(new Date(value+'-01T00:00:00Z'));
 let group=0, selected=0, db={};
-try{db=JSON.parse(localStorage.getItem(storageKey)||'{}')}catch{}
+try{
+ const saved=JSON.parse(localStorage.getItem(storageKey)||'{}');
+ if(saved&&typeof saved==='object'&&!Array.isArray(saved))db=saved;
+}catch{}
 $('unit').innerHTML=units.map(u=>'<option>'+u+'</option>').join('');
 if(Object.keys(db).length)$('source').value='work';
 let chartType='line';
