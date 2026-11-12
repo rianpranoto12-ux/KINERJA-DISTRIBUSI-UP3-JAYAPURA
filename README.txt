@@ -65,3 +65,19 @@ SUMBER DATA 2026
 - Data kerja (Excel + edit) menampilkan data Excel dengan isian browser
   yang berlaku pada periode, unit, dan indikator yang sama. Data Excel 2026
   menampilkan angka dasar dari file. Ekspor mencakup data Excel dan isian.
+
+OPSI IMPOR DATA
+- Buka Impor data kerja, lalu pilih tautan spreadsheet, Excel/CSV, atau JSON.
+- Untuk spreadsheet, gunakan templates/Template_Impor_Data_Kinerja.csv.
+  Kolom wajib: periode, unit, indikator, target, realisasi. Kolom lain opsional.
+  Format periode YYYY-MM dan tenggat YYYY-MM-DD sebagai teks. Pakai nama unit
+  dashboard dan kode indikator, misalnya sales atau saidi. Kolom angka kosong
+  mempertahankan nilai yang sudah ada. Isi 0 jika realisasinya memang nol.
+- Jika menyimpan sebagai Excel, pilih .xlsx. Gunakan tab Data atau lembar pertama.
+  File rekap dengan tata letak berbeda perlu disalin dulu ke kolom template.
+- Untuk Google Sheets, gunakan tautan tab yang dapat dibaca browser atau
+  tautan ekspor CSV. Tautan langsung CSV/XLSX perlu mengizinkan akses lintas situs.
+  Jika tautan dibatasi, unduh file dan gunakan opsi unggah Excel/CSV.
+- JSON menerima format hasil ekspor dashboard, termasuk rincian gangguan.
+- Impor memperbarui Data kerja. Dashboard meminta konfirmasi jika kuncinya
+  sudah ada di data Excel dasar atau di isian browser.

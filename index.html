@@ -23,6 +23,16 @@
 </div>
 <section class="panel workspace" id="workspace" hidden></section>
 <p class="muted">Data kerja tersimpan di browser ini. Gunakan ekspor dan impor untuk mencadangkan atau memindahkan data. Rekap UP3 diisi tersendiri sesuai laporan konsolidasi.</p></main>
+<dialog id="importDialog">
+<form id="importForm">
+<h2>Impor data kerja</h2>
+<label>Tautan spreadsheet<input id="importLink" type="url" placeholder="https://..." required></label>
+<p class="muted">Gunakan tautan Google Sheets atau tautan langsung CSV/XLSX yang dapat diakses browser.</p>
+<div class="toolbar"><button type="submit" class="primary">Impor dari tautan</button><button type="button" id="importExcel">Pilih Excel / CSV</button><button type="button" id="importJson">Pilih JSON</button><button type="button" id="importCancel">Tutup</button></div>
+<p class="muted"><a href="data:text/csv;charset=utf-8,periode%2Cunit%2Cindikator%2Ctarget%2Crealisasi%2Canalisa%2Cevaluasi%2Crencana_aksi%2Cpic%2Ctenggat%2Cstatus%0A2026-06%2CUP3%20Jayapura%2Csales%2C%2C%2C%2C%2C%2C%2C%2C%0A2026-06%2CULP%20Jayapura%2Csaidi%2C%2C%2C%2C%2C%2C%2C%2C%0A" download="Template_Impor_Data_Kinerja.csv">Unduh template Excel / CSV</a></p>
+<p id="importError" role="status" aria-live="polite"></p>
+</form>
+</dialog>
 <dialog id="dialog"><form id="editor"><h2 id="editTitle"></h2><p id="editPeriod" class="muted"></p><div class="formgrid" id="fields"></div><p id="error" class="bad" role="alert"></p><div class="bottom"><button type="button" id="cancel">Batal</button><button type="submit" class="primary">Simpan</button></div></form></dialog>
 <dialog id="detailDialog"><form id="detailEditor"><h2 id="detailTitle"></h2><p class="muted" id="detailPeriod"></p><div class="formgrid" id="detailFields"></div><p id="detailError" class="bad" role="alert"></p><div class="bottom"><button type="button" id="detailCancel">Batal</button><button type="submit" class="primary">Simpan</button></div></form></dialog>
 <noscript>Aktifkan JavaScript di browser untuk membuka dashboard.</noscript>
@@ -182,34 +192,211 @@ $('export').onclick=()=>{
  const url=URL.createObjectURL(new Blob([JSON.stringify({version:1,records},null,2)],{type:'application/json'}));
  const a=document.createElement('a');a.href=url;a.download='Data_Kinerja_UP3_Jayapura.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 };
-$('import').onclick=()=>$('file').click();
-$('file').onchange=async e=>{
- const file=e.target.files[0];if(!file)return;
- try{
-  const {version,records}=JSON.parse(await file.text());
-  if(version!==1||!records||Array.isArray(records)||typeof records!=='object')throw Error();
-  const clean={};
-  for(const [id,row] of Object.entries(records)){
-   const [m,u,k,...extra]=id.split('|');const i=indicators.findIndex(a=>a[0]===k);
-   if(extra.length||!/^20\d\d-(0[1-9]|1[0-2])$/.test(m)||!units.includes(u)||i<0||!row||Array.isArray(row)||typeof row!=='object')throw Error();
-   const safe={};
-   for(const f of ['target','actual']){
-    const v=row[f];if(v!=null&&(!Number.isFinite(v)||v<0||(capped(i)&&v>100)||(integer(i)&&!Number.isInteger(v))))throw Error();safe[f]=v??null;
-   }
-   for(const [f] of notesFields){const v=row[f]??'';if(typeof v!=='string'||v.length>3000)throw Error();safe[f]=v}
-   if(row.details!==undefined){
-    const schema=detailSchema(k);
-    if(!schema||!Array.isArray(row.details))throw Error();
-    safe.details=row.details.map(entry=>validateDetail(entry,schema));
-   }
-   clean[id]=safe;
+const importFields={
+ periode:'period',unit:'unit',indikator:'indicator',target:'target',realisasi:'actual',
+ analisa:'analysis',evaluasi:'evaluation',rencana_aksi:'action',pic:'owner',tenggat:'deadline',status:'status'
+};
+function csvRows(text){
+ const source=text.replace(/^\uFEFF/,'');
+ const separator=source.split(/\r?\n/,1)[0].includes(';')?';':',';
+ const rows=[];
+ let row=[], cell='', quoted=false;
+ for(let i=0;i<source.length;i++){
+  const ch=source[i];
+  if(ch==='"'&&quoted&&source[i+1]==='"'){cell+='"';i++;continue}
+  if(ch==='"'&&(quoted||cell==='')){quoted=!quoted;continue}
+  if(!quoted&&(ch===separator||ch==='\n'||ch==='\r')){
+   row.push(cell);cell='';
+   if(ch!==separator){rows.push(row);row=[];if(ch==='\r'&&source[i+1]==='\n')i++}
+   continue;
   }
-  const collisions=Object.keys(clean).filter(id=>Object.hasOwn(db,id)).length;
-  if(collisions&&!confirm(collisions+' entri pada periode, unit, dan indikator yang sama akan diperbarui. Lanjutkan?'))return;
-  for(const id of Object.keys(clean))clean[id]={...db[id],...clean[id]};
-  persist({...db,...clean});$('source').value='work';render();
-  $('summary').textContent+=' · '+Object.keys(clean).length+' entri diimpor';
- }catch{alert('Impor gagal. Gunakan file JSON hasil ekspor dashboard dan periksa kapasitas penyimpanan.')}finally{e.target.value=''}
+  cell+=ch;
+ }
+ if(quoted)throw Error('Tanda kutip pada CSV belum ditutup.');
+ row.push(cell);rows.push(row);
+ return rows;
+}
+function tablePayload(rows){
+ const filled=rows.filter(row=>row.some(v=>String(v??'').trim()));
+ const headers=(filled.shift()||[]).map(v=>importFields[String(v??'').trim().toLowerCase().replace(/\s+/g,'_')]);
+ if(!['period','unit','indicator','target','actual'].every(f=>headers.includes(f)))throw Error('Gunakan header periode, unit, indikator, target, realisasi sesuai template.');
+ const records={};
+ for(const [index,row] of filled.entries()){
+  const values=Object.fromEntries(headers.flatMap((f,i)=>f?[[f,String(row[i]??'').trim()]]:[]));
+  const u=units.find(unit=>unit.toLowerCase()===values.unit.toLowerCase());
+  const indicator=indicators.find(meta=>[meta[0],meta[1].toLowerCase()].includes(values.indicator.toLowerCase()));
+  if(!validMonth(values.period)||!u||!indicator)throw Error('Baris data '+(index+1)+': periode, unit, atau indikator tidak dikenali.');
+  const id=key(values.period,u,indicator[0]);
+  if(Object.hasOwn(records,id))throw Error('Baris data '+(index+1)+': periode, unit, dan indikator duplikat.');
+  const record={};
+  for(const f of ['target','actual']){
+   const value=values[f];
+   if(value==='')continue;
+   if(!/^\d+(?:[.,]\d+)?$/.test(value))throw Error('Baris data '+(index+1)+': gunakan angka tanpa pemisah ribuan.');
+   record[f]=Number(value.replace(',','.'));
+  }
+  for(const [f] of notesFields)if(values[f])record[f]=values[f];
+  if(Object.keys(record).length)records[id]=record;
+ }
+ return {version:1,records};
+}
+function zipDirectory(buffer){
+ const data=new DataView(buffer), entries=new Map();
+ let end=buffer.byteLength-22;
+ const lower=Math.max(0,end-65535);
+ while(end>=lower&&data.getUint32(end,true)!==0x06054b50)end--;
+ if(end<lower)throw Error('File XLSX tidak valid atau dilindungi kata sandi.');
+ let position=data.getUint32(end+16,true);
+ const decoder=new TextDecoder();
+ for(let i=0;i<data.getUint16(end+10,true);i++){
+  if(data.getUint32(position,true)!==0x02014b50)throw Error('Struktur XLSX tidak valid.');
+  const nameLength=data.getUint16(position+28,true);
+  const name=decoder.decode(new Uint8Array(buffer,position+46,nameLength));
+  entries.set(name,{method:data.getUint16(position+10,true),size:data.getUint32(position+20,true),unpacked:data.getUint32(position+24,true),offset:data.getUint32(position+42,true)});
+  position+=46+nameLength+data.getUint16(position+30,true)+data.getUint16(position+32,true);
+ }
+ return async name=>{
+  const entry=entries.get(name);
+  if(!entry)return null;
+  const {offset,size,method,unpacked}=entry;
+  if(unpacked>20*1024*1024)throw Error('Lembar Excel terlalu besar untuk diimpor.');
+  if(data.getUint32(offset,true)!==0x04034b50)throw Error('Isi XLSX tidak valid.');
+  const start=offset+30+data.getUint16(offset+26,true)+data.getUint16(offset+28,true);
+  const bytes=new Uint8Array(buffer,start,size);
+  if(method===0)return decoder.decode(bytes);
+  if(method!==8)throw Error('Kompresi XLSX tidak didukung.');
+  let stream;
+  try{stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))}
+  catch{throw Error('Browser belum mendukung pembacaan XLSX. Gunakan Chrome atau Edge terbaru, atau impor CSV.')}
+  return new Response(stream).text();
+ };
+}
+const xmlElements=(root,tag)=>Array.from(root.getElementsByTagNameNS('*',tag));
+function spreadsheetXml(xml){
+ if(!xml)throw Error('Komponen XLSX tidak lengkap.');
+ const doc=new DOMParser().parseFromString(xml,'application/xml');
+ if(xmlElements(doc,'parsererror').length)throw Error('XML Excel tidak valid.');
+ return doc;
+}
+async function xlsxPayload(buffer){
+ const read=zipDirectory(buffer);
+ const book=spreadsheetXml(await read('xl/workbook.xml'));
+ const tabs=xmlElements(book,'sheet');
+ const tab=tabs.find(s=>s.getAttribute('name').toLowerCase()==='data')||tabs[0];
+ if(!tab)throw Error('Excel tidak memiliki lembar data.');
+ const id=Array.from(tab.attributes).find(a=>a.localName==='id')?.value;
+ const relationships=spreadsheetXml(await read('xl/_rels/workbook.xml.rels'));
+ const destination=xmlElements(relationships,'Relationship').find(r=>r.getAttribute('Id')===id)?.getAttribute('Target');
+ if(!destination)throw Error('Lembar Excel tidak ditemukan.');
+ const path=new URL(destination,'https://xlsx.invalid/xl/workbook.xml').pathname.slice(1);
+ const sheet=spreadsheetXml(await read(path));
+ const sharedXml=await read('xl/sharedStrings.xml');
+ const cellText=root=>xmlElements(root,'t').map(t=>t.textContent).join('');
+ const shared=sharedXml?xmlElements(spreadsheetXml(sharedXml),'si').map(cellText):[];
+ const rows=xmlElements(sheet,'row').map(row=>{
+  const out=[];
+  for(const cell of xmlElements(row,'c')){
+   const letters=cell.getAttribute('r')?.match(/^[A-Z]+/)?.[0];
+   if(!letters)continue;
+   const index=[...letters].reduce((n,ch)=>n*26+ch.charCodeAt(0)-64,0)-1;
+   const type=cell.getAttribute('t'), value=xmlElements(cell,'v')[0]?.textContent??'';
+   out[index]=type==='s'?shared[Number(value)]??'':type==='inlineStr'?cellText(cell):value;
+  }
+  return out;
+ });
+ return tablePayload(rows);
+}
+function spreadsheetUrl(input){
+ const url=new URL(input);
+ if(!['https:','http:'].includes(url.protocol)||url.username||url.password)throw Error('Gunakan tautan HTTP atau HTTPS tanpa kredensial.');
+ if(url.hostname==='docs.google.com'){
+  const published=url.pathname.match(/^\/spreadsheets\/d\/e\/([\w-]+)\/pub(?:html)?\/?$/);
+  const sheet=url.pathname.match(/^\/spreadsheets\/d\/([\w-]+)(?:\/|$)/);
+  const gid=url.searchParams.get('gid')||new URLSearchParams(url.hash.slice(1)).get('gid')||'0';
+  if(published)return new URL('/spreadsheets/d/e/'+published[1]+'/pub?output=csv&gid='+encodeURIComponent(gid),url.origin);
+  if(sheet)return new URL('/spreadsheets/d/'+sheet[1]+'/gviz/tq?tqx=out:csv&gid='+encodeURIComponent(gid),url.origin);
+ }
+ return url;
+}
+function applyImport(payload){
+ const {version,records}=payload;
+ if(version!==1||!records||Array.isArray(records)||typeof records!=='object')throw Error('Format data impor tidak valid.');
+ const clean={};
+ for(const [id,row] of Object.entries(records)){
+  const [m,u,k,...extra]=id.split('|'), i=indicators.findIndex(a=>a[0]===k);
+  if(extra.length||!validMonth(m)||!units.includes(u)||i<0||!row||Array.isArray(row)||typeof row!=='object')throw Error('Entri tidak dikenali: '+id);
+  const safe={};
+  for(const f of ['target','actual']){
+   if(!Object.hasOwn(row,f))continue;
+   const v=row[f];
+   if(v!==null&&(!Number.isFinite(v)||v<0||(capped(i)&&v>100)||(integer(i)&&!Number.isInteger(v))))throw Error('Nilai '+f+' tidak sesuai: '+id);
+   safe[f]=v;
+  }
+  for(const [f] of notesFields){
+   if(!Object.hasOwn(row,f))continue;
+   const v=row[f]??'';
+   if(typeof v!=='string'||v.length>3000)throw Error('Catatan tidak valid: '+id);
+   safe[f]=v;
+  }
+  if(row.details!==undefined){
+   const schema=detailSchema(k);
+   if(!schema||!Array.isArray(row.details))throw Error('Rincian tidak valid: '+id);
+   safe.details=row.details.map(entry=>validateDetail(entry,schema));
+  }
+  clean[id]=safe;
+ }
+ const keys=Object.keys(clean);
+ if(!keys.length)throw Error('Tidak ada baris berisi data untuk diimpor.');
+ const collisions=keys.filter(id=>Object.hasOwn(db,id)||Object.hasOwn(workbookRecords,id)).length;
+ if(collisions&&!confirm(collisions+' entri dengan periode, unit, dan indikator yang sama akan diperbarui dalam Data kerja. Lanjutkan?'))return false;
+ for(const id of keys)clean[id]={...db[id],...clean[id]};
+ persist({...db,...clean});
+ $('source').value='work';render();
+ $('summary').textContent+=' · '+keys.length+' entri diimpor';
+ return true;
+}
+$('import').onclick=()=>{$('importError').textContent='';$('importDialog').showModal()};
+$('importCancel').onclick=()=>$('importDialog').close();
+for(const [button,accept] of [['importExcel','.xlsx,.csv'],['importJson','.json,application/json']]){
+ $(button).onclick=()=>{$('file').accept=accept;$('file').click()};
+}
+async function runImport(load){
+ const error=$('importError');
+ error.textContent='Membaca data…';
+ $('importForm').querySelectorAll('button').forEach(button=>{button.disabled=true});
+ try{
+  if(applyImport(await load()))$('importDialog').close();
+  error.textContent='';
+ }catch(problem){error.textContent=problem.message||'Impor gagal.'}
+ finally{$('importForm').querySelectorAll('button').forEach(button=>{button.disabled=false})}
+}
+$('file').onchange=async e=>{
+ const file=e.target.files[0];
+ if(!file)return;
+ e.target.value='';
+ await runImport(async()=>{
+  if(file.size>10*1024*1024)throw Error('Ukuran file maksimal 10 MB.');
+  if(/\.xlsx$/i.test(file.name))return xlsxPayload(await file.arrayBuffer());
+  if(/\.csv$/i.test(file.name))return tablePayload(csvRows(await file.text()));
+  if(/\.json$/i.test(file.name))return JSON.parse(await file.text());
+  throw Error('Pilih file XLSX, CSV, atau JSON.');
+ });
+};
+$('importForm').onsubmit=async e=>{
+ e.preventDefault();
+ await runImport(async()=>{
+  const url=spreadsheetUrl($('importLink').value.trim());
+  let response;
+  try{response=await fetch(url,{credentials:'omit',signal:AbortSignal.timeout(20000)})}
+  catch{throw Error('Tautan tidak dapat dibaca browser. Periksa akses dan izin lintas situs, atau unduh spreadsheet lalu impor sebagai file.')}
+  if(!response.ok)throw Error('Tautan mengembalikan status HTTP '+response.status+'. Periksa akses spreadsheet.');
+  const file=await response.blob();
+  if(file.size>10*1024*1024)throw Error('Ukuran spreadsheet maksimal 10 MB.');
+  if(/\.xlsx$/i.test(url.pathname)||file.type.includes('spreadsheetml'))return xlsxPayload(await file.arrayBuffer());
+  const text=await file.text();
+  if(text.trimStart().startsWith('<'))throw Error('Tautan membuka halaman HTML. Gunakan tautan ekspor CSV atau unduh filenya.');
+  return tablePayload(csvRows(text));
+ });
 };
 const assetIds=['feeder','transformer','cubicle','recloser','lbs'];
 const causeIds=['saidi','saifi','ens'];
