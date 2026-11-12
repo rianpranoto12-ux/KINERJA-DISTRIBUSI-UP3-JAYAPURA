@@ -43,3 +43,25 @@ EDIT SUMBER
   node sinkronkan-index.mjs
 - Node.js hanya diperlukan untuk sinkronisasi sumber. Deploy dapat dilakukan
   langsung dengan index.html yang sudah disertakan.
+
+SUMBER DATA 2026
+- Dashboard dibuka pada Juni 2026 dengan pilihan Data Excel 2026.
+- Sumber: REALISASI KINERJA UP3 JAYAPURA 2026.xlsx. Tujuh indikator yang
+  memiliki padanan dimuat untuk UP3 dan enam ULP.
+- Penjualan total kumulatif: realisasi NPS_isi baris 34–40. Target total
+  dihitung dari baseline NPS_isi baris 24–30 ditambah target delta pada
+  Target Kinerja 2026, agar setara dengan realisasi penjualan total.
+- Susut tanpa E-min: tel_2 baris 3–9, Januari–Mei. Nilai berulang mulai
+  Juni berasal dari sumber energi yang belum diisi, sehingga dibiarkan kosong.
+- SAIDI, SAIFI, ENS, dan response time: JARKONS_isi. Response time mengikuti
+  definisi di luar clear tamper dan angka Januari 0 menit dibiarkan kosong.
+- Rating negatif: jumlah bulanan JARKONS_isi kolom Q–AB diakumulasi sejak
+  Januari. Rekap Juni UP3 dari jumlah bulanan adalah 10, sedangkan tab
+  Realisasi mencatat 9. Dashboard memakai jumlah dari kolom bulanan.
+- Target selain penjualan diambil dari Target Kinerja 2026. Realisasi
+  ditampilkan hingga bulan terakhir yang tersedia untuk setiap unit dan KPI.
+- Indikator lain dan rincian penyebab ditampilkan kosong sampai diisi.
+  Gangguan TM pada Excel mencakup cakupan berbeda dari gangguan penyulang.
+- Data kerja (Excel + edit) menampilkan data Excel dengan isian browser
+  yang berlaku pada periode, unit, dan indikator yang sama. Data Excel 2026
+  menampilkan angka dasar dari file. Ekspor mencakup data Excel dan isian.
